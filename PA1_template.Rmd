@@ -8,18 +8,110 @@ output:
 
 ## Loading and preprocessing the data
 
+```{r}
+setwd("C:/Users/Gitu/Desktop/Elective/RR/RepData_PeerAssessment1/")
+d=read.csv("activity.csv",header=TRUE,sep=",")
+
+library(ggplot2)
+library(dplyr)
+```
+
+###preprocessing the data
+
+```{r}
+dim(d)
+names(d)
+head(d)
+str(d)
+sum(is.na(d$steps))/dim(d)[[1]]
+```
 
 
 ## What is mean total number of steps taken per day?
 
+```{r}
+totalsteps<-aggregate(d$steps,list(d$date),FUN=sum)
+colnames(totalsteps)<-c("Date","Steps")
+totalsteps
 
+mean(totalsteps$Steps,na.rm=TRUE)
+median(totalsteps$Steps, na.rm=TRUE)
+
+```
+
+###histogram
+```{r}
+g<-ggplot(totalsteps,aes(Steps))
+p<-g+geom_histogram(boundary=0,binwidth=2500,                  col="grey",fill="black")+ggtitle("Histogram of Total Steps")+xlab("Steps")+ylab("Frequency")+theme(plot.title = element_text(face="bold",size=10))+scale_x_continuous(breaks=seq(0,25000,2500))+scale_y_continuous(breaks=seq(0,18,2))
+plot(p)
+```
 
 ## What is the average daily activity pattern?
 
+```{r}
+timesteps <- aggregate(steps~interval,data=d,
+                       FUN=mean,na.action=na.omit)
 
+timesteps$time <- timesteps$interval/100
+
+h <- ggplot(timesteps, aes(time, steps))
+q<-h+geom_line(col="brown")+ggtitle("Average steps per time interval")+xlab("Time")+ylab("Steps")+theme(plot.title = element_text(face="bold", size=10))
+
+plot(q)
+
+ts <- tbl_df(timesteps)
+
+ts %>% select(time, steps) %>% filter(steps==max(ts$steps))
+
+```
 
 ## Imputing missing values
+
+```{r}
+ACT <- tbl_df(d)
+ACT %>% filter(is.na(steps))%>%
+summarize(missing_values = n())
+
+d$CompleteSteps<-ifelse(is.na(d$steps), round(timesteps$steps[match(d$interval, timesteps$interval)],0), d$steps)
+
+
+dFilled <-data.frame(steps=d$CompleteSteps, interval=d$interval, date=d$date)
+
+filledtotalsteps <- aggregate(dFilled$steps, list(dFilled$date), FUN=sum)
+colnames(filledtotalsteps) <- c("Date", "Steps")
+
+g <- ggplot(filledtotalsteps, aes(Steps))
+g+geom_histogram(boundary=0, binwidth=2500, col="grey", fill="black")+ggtitle("Histogram of steps per day")+xlab("Steps")+ylab("Frequency")+theme(plot.title = element_text(face="bold", size=12))+scale_x_continuous(breaks=seq(0,25000,2500))+scale_y_continuous(breaks=seq(0,26,2))
+
+#new mean and median
+
+mean(filledtotalsteps$Steps)
+median(filledtotalsteps$Steps)
+
+```
 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+dFilled$RealDate <- as.Date(dFilled$date, format = "%Y-%m-%d")
+
+dFilled$weekday <- weekdays(dFilled$RealDate)
+dFilled$DayType<-ifelse(dFilled$weekday =='Saturday'| dFilled$weekday=='Sunday', 'weekend','weekday')
+
+
+#to plot
+
+StepsW<-aggregate(steps~interval+DayType,data=dFilled,FUN=mean,na.action=na.omit)
+
+StepsW$time <- timesteps$interval/100
+
+par(mfrow=c(2,1))
+
+e <- ggplot(StepsW, aes(time, steps))
+f<-e+geom_line(col="darkred")+ggtitle("Average steps per time interval:Weekdays vs.Weekends")+xlab("Time")+ylab("Steps")+theme(plot.title = element_text(face="bold", size=12))+facet_grid(DayType ~ .)
+
+plot(f)
+
+```
